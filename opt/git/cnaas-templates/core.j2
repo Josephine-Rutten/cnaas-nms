@@ -1,0 +1,17 @@
+{{ cli_prepend_str }}
+!
+{% include 'base.j2' %}
+
+{% include 'users.j2' %}
+
+{% include 'acl.j2' %}
+
+{% include 'fabric-base.j2' %}
+
+{% include 'fabric-vrf.j2' %}
+
+{% include 'core-interfaces.j2' %}
+
+{% include 'core-bgp.j2' %}
+
+{{ cli_append_str }}

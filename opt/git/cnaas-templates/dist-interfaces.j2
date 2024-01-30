@@ -1,0 +1,152 @@
+interface Loopback0
+ no shutdown
+ ip address {{ infra_ipif }}
+!
+interface Loopback1
+ vrf MGMT
+ no shutdown
+ ip address {{ mgmt_ipif }}
+!
+{% for mgmtdom in mgmtdomains %}
+interface Vlan{{ mgmtdom.vlan }}
+ vrf MGMT
+ ip address virtual {{ mgmtdom.ipv4_gw }}
+ arp aging timeout 180
+{% endfor %}
+!
+{% for intf in interfaces %}
+interface {{ intf.name }}
+{% if intf.ifclass == 'downlink' %}
+ {% if (intf.data is defined) and intf.data %}
+  {% if (intf.data.description is defined) and intf.data.description %}
+ description {{ intf.data.description }}
+  {% else %}
+ description DOWNLINK
+  {% endif %}
+ {% else %}
+ description DOWNLINK
+ {% endif %}
+ link-debounce time 20000 0
+ switchport
+ switchport mode trunk
+ {# Arista port-channel numbering, use indexnum - 1 and no values higher than 1999 (meaning Ethernet1 = Port-channel1) #}
+ {% set po_num = (intf.indexnum-1)%2000 %}
+ channel-group {{ po_num }} mode active
+!
+interface Port-channel {{ po_num }}
+ {% if (intf.data is defined) and intf.data %}
+  {% if (intf.data.description is defined) and intf.data.description %}
+ description {{ intf.data.description }}
+  {% else %}
+ description DOWNLINK
+  {% endif %}
+ {% else %}
+ description DOWNLINK
+ {% endif %}
+ port-channel lacp fallback individual
+ port-channel lacp fallback timeout 3
+ spanning-tree portfast edge
+ spanning-tree guard root
+ {% if device_model and not (device_model.startswith('cEOSLab')) %}
+ storm-control broadcast level 1
+ {% endif %}
+ {% if intf.redundant_link is not defined or intf.redundant_link is true %}
+  {% if mgmtdomains|length > 0 %}
+ evpn ethernet-segment
+  identifier 0033:3333:3333:3333:{{ "%02x" % mgmtdomains[0].id }}{{ "%02x" % (intf.indexnum%256) }}
+  route-target import 00:03:00:03:{{ "%02x" % mgmtdomains[0].id }}:{{ "%02x" % (intf.indexnum%256) }}
+ lacp system-id 1234.5678.{{ "%02x" % mgmtdomains[0].id }}{{ "%02x" % (intf.indexnum%256) }}
+  {% endif %}
+ {% endif %}
+{% elif intf.ifclass == 'fabric' %}
+ {% if intf.ipv4if is defined and intf.ipv4if %}
+  description {{ intf.peer_hostname }}
+  no switchport
+  ip address {{ intf.ipv4if }}
+  pim ipv4 sparse-mode
+  mtu 9214
+ {% else %}
+  description ZTP
+  switchport access vlan 1
+ {% endif %}
+{% elif intf.ifclass == 'custom' %}
+ {{ intf.config }}
+{% endif %}
+{% endfor %}
+!
+!
+{% for vxlan_name, vxlan_data in vxlans.items() %}
+ {% if (vxlan_data.ipv4_gw is defined) and vxlan_data.ipv4_gw %}
+interface Vlan{{ vxlan_data.vlan_id }}
+ vrf {{ vxlan_data.vrf }}
+ description {{ vxlan_data.description }}
+ ip address virtual {{ vxlan_data.ipv4_gw }}
+  {% if vxlan_data.ipv4_secondaries is defined and vxlan_data.ipv4_secondaries %}
+   {% for ipv4_secondary in vxlan_data.ipv4_secondaries %}
+ ip address virtual {{ ipv4_secondary }} secondary
+   {% endfor %}
+  {% endif %}
+  {% if (vxlan_data.acl_ipv4_in is defined) and vxlan_data.acl_ipv4_in %}
+ ip access-group {{ vxlan_data.acl_ipv4_in }} in
+  {% endif %}
+  {% if (vxlan_data.acl_ipv4_out is defined) and vxlan_data.acl_ipv4_out %}
+ ip access-group {{ vxlan_data.acl_ipv4_out }} out
+  {% endif %}
+  {% if (vxlan_data.ipv6_gw is defined) and vxlan_data.ipv6_gw %}
+ ipv6 enable
+ ipv6 address virtual {{ vxlan_data.ipv6_gw }}
+  {% endif %}
+  {% if (vxlan_data.acl_ipv6_in is defined) and vxlan_data.acl_ipv6_in %}
+ ipv6 access-group {{ vxlan_data.acl_ipv6_in }} in
+  {% endif %}
+  {% if (vxlan_data.acl_ipv6_out is defined) and vxlan_data.acl_ipv6_out %}
+ ipv6 access-group {{ vxlan_data.acl_ipv6_out }} out
+  {% endif %}
+ ip igmp
+ arp aging timeout 180
+  {% if (vxlan_data.dhcp_relays is defined) and vxlan_data.dhcp_relays is sequence %}
+   {% for dhcp_relay in vxlan_data.dhcp_relays %}
+ ip helper-address {{ dhcp_relay.host }}
+   {% endfor %}
+  {% elif (dhcp_relays is defined) and dhcp_relays is sequence %}
+   {% for dhcp_relay in dhcp_relays %}
+ ip helper-address {{ dhcp_relay.host }}
+   {% endfor %}
+  {% endif %}
+  {% if (vxlan_data.mtu is defined) and vxlan_data.mtu %}
+ mtu {{ vxlan_data.mtu }}
+  {% endif %}
+ {{ vxlan_data.cli_append_str }}
+!
+ {% else %}
+  {% if (vxlan_data.querier_address is defined) and vxlan_data.querier_address %}
+ip igmp snooping vlan {{ vxlan_data.vlan_id }} querier
+ip igmp snooping vlan {{ vxlan_data.vlan_id }} querier address {{ vxlan_data.querier_address }}
+  {% endif %}
+ {% endif %}
+ {{ vxlan_data.cli_append_str }}
+{% endfor %}
+!
+!
+interface Vxlan1
+ vxlan source-interface Loopback0
+ vxlan udp-port 4789
+ {% for vxlan_name, vxlan_data in vxlans.items() %}
+ vxlan vlan {{ vxlan_data.vlan_id }} vni {{ vxlan_data.vni }}
+  {% if (vxlan_data.ipv4_gw is not defined) or not vxlan_data.ipv4_gw %}
+   {% if device_model and not (device_model.startswith('cEOSLab') or device_model.startswith('DCS-7280SR-')) %}
+ vxlan vlan {{ vxlan_data.vlan_id }} multicast group 239.2.{{ (vxlan_data.vni/256)|int%256 }}.{{ vxlan_data.vni%256 }}
+   {% endif %}
+  {% endif %}
+ {% endfor %}
+ {% for mgmtdom in mgmtdomains %}
+ vxlan vlan {{ mgmtdom.vlan }} vni {{ 200000 + mgmtdom.vlan }}
+ {% endfor %}
+ {% for vrf in vrfs %}
+ vxlan vrf {{ vrf.name }} vni {{ 100000 + vrf.vrf_id }}
+  {% if device_model and not (device_model.startswith('cEOSLab') or device_model.startswith('DCS-7280SR-')) %}
+ vxlan vrf {{ vrf.name }} multicast group 239.3.{{ (vrf.vrf_id/256)|int%256 }}.{{ vrf.vrf_id%256 }}
+  {% endif %}
+ {% endfor %}
+!
+

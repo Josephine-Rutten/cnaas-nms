@@ -1,0 +1,27 @@
+{{ cli_prepend_str }}
+!
+{% include 'base.j2' %}
+
+{% include 'users.j2' %}
+
+{% include 'acl.j2' %}
+
+{% include 'tcam-profiles.j2' %}
+
+{% include 'dist-base.j2' %}
+
+{% include 'fabric-base.j2' %}
+
+{% include 'dist-vlan.j2' %}
+
+{% include 'fabric-vrf.j2' %}
+
+{% include 'dist-interfaces.j2' %}
+
+{% include 'dist-bgp.j2' %}
+
+{% include 'dist-routing.j2' %}
+
+{% include 'routing-policy.j2' %}
+
+{{ cli_append_str }}

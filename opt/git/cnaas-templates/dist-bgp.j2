@@ -1,0 +1,149 @@
+router bgp {{ asn }}
+ router-id {{ infra_ip }}
+ no bgp default ipv4-unicast
+ maximum-paths 2
+ update wait-install
+ {% for nei in bgp_ipv4_peers %}
+ neighbor {{ nei.peer_ip }} remote-as {{ nei.peer_asn }}
+ neighbor {{ nei.peer_ip }} description {{ nei.peer_hostname }}
+ {% endfor %}
+ {% for nei in bgp_evpn_peers %}
+ neighbor {{ nei.peer_infra_lo }} remote-as {{ nei.peer_asn }}
+ neighbor {{ nei.peer_infra_lo }} description {{ nei.peer_hostname }}
+ neighbor {{ nei.peer_infra_lo }} update-source Loopback0
+ neighbor {{ nei.peer_infra_lo }} ebgp-multihop 3
+ neighbor {{ nei.peer_infra_lo }} send-community
+ neighbor {{ nei.peer_infra_lo }} bfd
+ neighbor {{ nei.peer_infra_lo }} maximum-routes 0
+ {% endfor %}
+ {% if (extroute_bgp.vrfs | selectattr("name", "equalto", "UNDERLAY") | list | length) == 1 %}
+  {% set bgp_vrf = extroute_bgp.vrfs | selectattr("name", "equalto", "UNDERLAY") | first %}
+   {% for nei in bgp_vrf.neighbor_v4 %}
+    neighbor {{ nei.peer_ipv4 }} remote-as {{ nei.peer_as }}
+    neighbor {{ nei.peer_ipv4 }} route-map {{ nei.route_map_in }} in
+    neighbor {{ nei.peer_ipv4 }} route-map {{ nei.route_map_out }} out
+    neighbor {{ nei.peer_ipv4 }} maximum-routes 0
+    neighbor {{ nei.peer_ipv4 }} description {{ nei.description }}
+    {% if (nei.graceful_restart is defined) and nei.graceful_restart is true %}
+    neighbor {{ nei.peer_ipv4 }} graceful-restart
+    {% endif %}
+    {% if (nei.bfd is defined) and nei.bfd is true %}
+    neighbor {{ nei.peer_ipv4 }} bfd
+    {% endif %}
+    {% if (nei.ebgp_multihop is defined) and nei.ebgp_multihop %}
+    neighbor {{ nei.peer_ipv4 }} ebgp-multihop {{ nei.ebgp_multihop }}
+    {% endif %}
+    address-family ipv4
+      neighbor {{ nei.peer_ipv4 }} activate
+   {% endfor %}
+ {% endif %}
+!
+ address-family ipv4
+   {% for nei in bgp_ipv4_peers %}
+   neighbor {{ nei.peer_ip }} activate
+   {% endfor %}
+   network {{ infra_ipif }}
+ !
+ address-family evpn
+   {% if device_os_version and device_os_version[:4]|float >= 4.26 %}
+   host-flap detection expiry timeout 90 seconds
+   {% endif %}
+   {% for nei in bgp_evpn_peers %}
+   neighbor {{ nei.peer_infra_lo }} activate
+   neighbor {{ nei.peer_infra_lo }} next-hop-unchanged
+   {% endfor %}
+ !
+  {% for vxlan_name, vxlan_data in vxlans.items() %}
+  vlan {{ vxlan_data.vlan_id }}
+  rd {{ infra_ip }}:{{ vxlan_data.vlan_id }}
+  route-target both 1:{{ vxlan_data.vlan_id }}
+  redistribute learned
+  {% if (vxlan_data.vxlan_host_route is defined) and not vxlan_data.vxlan_host_route %}
+  no redistribute host-route
+  {% endif %}
+   {% if device_model and not (device_model.startswith('cEOSLab') or device_model.startswith('DCS-7280SR-')) %}
+  redistribute igmp
+   {% endif %}
+  {% endfor %}
+!
+  {% for mgmtdom in mgmtdomains %}
+  vlan {{ mgmtdom.vlan }}
+  rd {{ infra_ip }}:{{ mgmtdom.vlan }}
+  route-target both 1:{{ mgmtdom.vlan }}
+  redistribute learned
+  {% endfor %}
+!
+  {% for vrf in vrfs %}
+  vrf {{ vrf.name }}
+  rd {{ infra_ip }}:{{ vrf.vrf_id }}
+   {% if device_model and not (device_model.startswith('cEOSLab') or device_model.startswith('DCS-7280SR-')) %}
+  evpn multicast
+   {% endif %}
+  route-target export evpn 2:{{ vrf.vrf_id }}
+  route-target import evpn 2:{{ vrf.vrf_id }}
+  {% if (vrf.export_route_targets is defined) and (vrf.import_route_targets is defined) %}
+   {% for export_route_target in vrf.export_route_targets %}
+  route-target export evpn {{ export_route_target }}
+   {% endfor %}
+   {% for import_route_target in vrf.import_route_targets %}
+  route-target import evpn {{ import_route_target }}
+   {% endfor %}
+  {% endif %}
+  {% if (vrf.export_policy is defined) and vrf.export_policy %}
+  route-target export evpn route-map {{ vrf.export_policy }}
+  {% endif %}
+  {% if (vrf.import_policy is defined) and vrf.import_policy %}
+  route-target import evpn route-map {{ vrf.import_policy }}
+  {% endif %}
+  redistribute connected
+  redistribute static
+
+{# BGP inside VRF #}
+   {% if (extroute_bgp is defined) and extroute_bgp %}
+    {% if (extroute_bgp.vrfs | selectattr("name", "equalto", vrf.name) | list | length) == 1 %}
+     {% set bgp_vrf = extroute_bgp.vrfs | selectattr("name", "equalto", vrf.name) | first %}
+     local-as {{ bgp_vrf.local_as }}
+     {% for nei in bgp_vrf.neighbor_v4 %}
+      neighbor {{ nei.peer_ipv4 }} remote-as {{ nei.peer_as }}
+      neighbor {{ nei.peer_ipv4 }} route-map {{ nei.route_map_in }} in
+      neighbor {{ nei.peer_ipv4 }} route-map {{ nei.route_map_out }} out
+      neighbor {{ nei.peer_ipv4 }} maximum-routes 12000
+      neighbor {{ nei.peer_ipv4 }} description {{ nei.description }}
+      {% if (nei.graceful_restart is defined) and nei.graceful_restart is true %}
+      neighbor {{ nei.peer_ipv4 }} graceful-restart
+      {% endif %}
+      {% if (nei.bfd is defined) and nei.bfd is true %}
+      neighbor {{ nei.peer_ipv4 }} bfd
+      {% endif %}
+      {% if (nei.ebgp_multihop is defined) and nei.ebgp_multihop %}
+      neighbor {{ nei.peer_ipv4 }} ebgp-multihop {{ nei.ebgp_multihop }}
+      {% endif %}
+      address-family ipv4
+        neighbor {{ nei.peer_ipv4 }} activate
+     {% endfor %}
+     {% for nei in bgp_vrf.neighbor_v6 %}
+      neighbor {{ nei.peer_ipv6 }} remote-as {{ nei.peer_as }}
+      neighbor {{ nei.peer_ipv6 }} route-map {{ nei.route_map_in }} in
+      neighbor {{ nei.peer_ipv6 }} route-map {{ nei.route_map_out }} out
+      neighbor {{ nei.peer_ipv6 }} maximum-routes 12000
+      neighbor {{ nei.peer_ipv6 }} description {{ nei.description }}
+      {% if (nei.graceful_restart is defined) and nei.graceful_restart is true %}
+      neighbor {{ nei.peer_ipv6 }} graceful-restart
+      {% endif %}
+      {% if (nei.bfd is defined) and nei.bfd is true %}
+      neighbor {{ nei.peer_ipv6 }} bfd
+      {% endif %}
+      {% if (nei.ebgp_multihop is defined) and nei.ebgp_multihop %}
+      neighbor {{ nei.peer_ipv6 }} ebgp-multihop {{ nei.ebgp_multihop }}
+      {% endif %}
+      address-family ipv6
+        neighbor {{ nei.peer_ipv6 }} activate
+     {% endfor %}
+     {% if (bgp_vrf.cli_append_str is defined) and bgp_vrf.cli_append_str %}
+     {{ bgp_vrf.cli_append_str }}
+     {% endif %}
+    {% endif %}
+   {% endif %}
+{# BGP inside VRF slut #}
+
+  {% endfor %}

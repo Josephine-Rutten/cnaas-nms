@@ -1,0 +1,39 @@
+peer-filter EVPN_PEERS
+ 10 match as-range 4200000000-4200065536 result accept
+
+router bgp {{ asn }}
+ router-id {{ infra_ip }}
+ no bgp default ipv4-unicast
+ maximum-paths 2
+ update wait-install
+ {% for nei in bgp_ipv4_peers %}
+ neighbor {{ nei.peer_ip }} remote-as {{ nei.peer_asn }}
+ neighbor {{ nei.peer_ip }} description {{ nei.peer_hostname }}
+ {% endfor %}
+ bgp listen range {{ underlay.infra_lo_net }} peer-group EVPN peer-filter EVPN_PEERS
+ neighbor EVPN peer group
+ neighbor EVPN update-source Loopback0
+ neighbor EVPN bfd
+ neighbor EVPN ebgp-multihop 3
+ neighbor EVPN send-community
+ neighbor EVPN maximum-routes 0
+ address-family ipv4
+   {% for nei in bgp_ipv4_peers %}
+   neighbor {{ nei.peer_ip }} activate
+   {% endfor %}
+   network {{ infra_ipif }}
+ !
+ address-family evpn
+   neighbor EVPN activate
+   neighbor EVPN next-hop-unchanged
+ !
+ {% for vrf in vrfs %}
+ vrf {{ vrf.name }}
+  rd {{ infra_ip }}:{{ vrf.vrf_id }}
+  route-target export evpn 2:{{ vrf.vrf_id }}
+  route-target import evpn 2:{{ vrf.vrf_id }}
+  redistribute connected
+  exit
+ {% endfor %}
+ exit
+
