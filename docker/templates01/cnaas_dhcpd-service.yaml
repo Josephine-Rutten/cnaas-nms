@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cnaas-dhcpd
+  name: cnaas-dhcpd
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: LoadBalancer
+  loadBalancerIP: {{ .Values.loadbalancer.ip }}
+  ports:
+    - name: "67"
+      port: 67
+      protocol: UDP
+      targetPort: 67
+  selector:
+    io.kompose.service: cnaas-dhcpd
+status:
+  loadBalancer: {}

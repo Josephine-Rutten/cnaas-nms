@@ -1,0 +1,22 @@
+---
+groups:
+  - group:
+      name: 'ALL_DEVICES'
+      regex: '.*'
+  - group:
+      name: 'ALL'
+      regex: '.*'
+  - group:
+      name: 'DIST'
+      regex: '.*dist.*'
+  - group:
+      name: 'DIST_ODD'
+      regex: '.*dist[13579]'
+  - group:
+      name: 'E1'
+      regex: 'eosdist1$'
+      group_priority: 100
+  - group:
+      name: 'E'
+      regex: 'eosdist.*'
+      group_priority: 99

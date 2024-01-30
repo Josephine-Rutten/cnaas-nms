@@ -1,0 +1,129 @@
+
+dns:
+  prefix: campus 
+
+csidriver:
+  managedidentityclientid: 0000-0000-0000-0000
+  keyvaultname: testvault
+
+loadbalancer:
+  ip: "10.0.1.250"
+
+api:
+  image: "registry.test.automation.surf.net/josephine/cnaas-nms-cnaas-nms:okteto" # nginx:latest #cnaasimages.azurecr.io/cnaas/cnaas-nms:d61a9c1c
+  # templates:
+  #   # giturl: "https://cnaas:$(GIT_TOKEN)@gitlab.surf.nl/surf-wired/cnaas-templates.git"
+  #   branch: "master"
+
+httpd:
+  image: docker.sunet.se/cnaas/httpd:latest
+
+dhcpd:
+  image: docker.sunet.se/cnaas/dhcpd:latest
+
+  config:
+    dhcpd.conf: |
+      ddns-update-style none;
+
+      default-lease-time 300;
+      max-lease-time 600;
+
+      deny duplicates;
+      one-lease-per-client on;
+
+      # Do not disturb clients that happen to temporary be on this network
+      not authoritative;
+      log-facility local7;
+
+      on commit {
+        set swMac = binary-to-ascii(16, 8, ":", substring(hardware, 1, 6));
+        set swIp = binary-to-ascii(10, 8, ".", leased-address);
+        execute("/opt/cnaas/dhcp-hook.sh", "commit", swMac, swIp, swPlatform);
+      }
+
+      class "ARISTA-ZTP" {
+        # set on initial boot without any config
+        match if ( substring(option vendor-class-identifier, 0, 6) = "Arista");
+        set swPlatform = "eos";
+        option bootfile-name "http://10.2.0.4/templates/eos/dhcp-init.j2";
+      }
+
+      class "ARISTA" {
+        # set on subsequent boots using dhcp
+        match if (substring (option dhcp-client-identifier, 0, 6) = "Arista");
+        set swPlatform = "eos";
+      }
+
+      class "CISCO" {
+        match if (substring (option dhcp-client-identifier, 1, 5) = "cisco");
+        set swPlatform = "ios";
+        next-server 10.2.0.4;
+        filename "network-confg";
+      }
+
+      option space JNPR;
+      option JNPR.image-file-name code 0 = text;
+      option JNPR.config-file-name code 1 = text;
+      option JNPR.image-file-type code 2 = text;
+      option JNPR.transfer-mode code 3 = text;
+      option JNPR-encapsulation code 43 = encapsulate JNPR;
+      option option-150 code 150 = array of ip-address;
+
+      class "JUNIPER-ACCESS" {
+        match if ( substring(option vendor-class-identifier, 0, 14) = "Juniper-ex3400");
+        set swPlatform = "junos";
+        option JNPR.config-file-name "/templates/junos/dhcp-init.j2";
+        option JNPR.transfer-mode "http";
+        option JNPR.image-file-name "/firmware/junos-arm-32-18.2R3.4.tgz";
+        option tftp-server-name "10.2.0.4";
+      }
+
+      class "JUNIPER-DIST" {
+        match if ( substring(option vendor-class-identifier, 0, 14) = "Juniper-ex4650");
+        set swPlatform = "junos";
+        option JNPR.config-file-name "/templates/junos/dhcp-init.j2";
+        option JNPR.transfer-mode "http";
+        option JNPR.image-file-name "/firmware/jinstall-host-ex-4e-x86-64-21.4R1-S1.6-secure-signed.tgz";
+        option tftp-server-name "10.2.0.4";
+      }
+
+      class "JUNIPER-BASE" {
+        match if ( substring(option vendor-class-identifier, 0, 7) = "Juniper");
+        set swPlatform = "junos";
+      }
+
+      # This empty subnet is required for dhcpd to start in the cnaas docker-compose network, do not remove
+      subnet  172.31.0.0 netmask 255.255.255.0 {
+      }
+
+      subnet 10.3.192.0 netmask 255.255.255.0 {
+        option routers 10.3.192.254;
+        pool {
+          range 10.3.192.200 10.3.192.250;
+          allow members of "ARISTA-ZTP";
+          allow members of "ARISTA";
+          allow members of "CISCO";
+          allow members of "JUNIPER-DIST";
+          allow members of "JUNIPER-ACCESS";
+          allow members of "JUNIPER-BASE";
+        }
+      }
+
+      subnet 10.3.193.0 netmask 255.255.255.0 {
+        option routers 10.3.193.1;
+        option domain-name-servers ns0.tilburg1.surf.net, ns0.utrecht1.surf.net, ns0.amsterdam1.surf.net;
+        pool {
+          range 10.3.193.10 10.3.193.250;
+        }
+      }
+
+
+auth:
+  image: docker.sunet.se/auth-server-poc:latest
+
+postgres:
+  image: docker.sunet.se/cnaas/postgres:latest
+
+redis:
+  image: redis:latest
+

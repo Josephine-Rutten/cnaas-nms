@@ -1,0 +1,42 @@
+name: cnaas-nms
+
+# The build section defines how to build the images of your development environment
+# More info: https://www.okteto.com/docs/reference/manifest/#build
+build:
+
+  # You can use the following env vars to refer to this image in your deploy commands:
+  #  - OKTETO_BUILD_CNAAS_FRONT_REGISTRY: image registry
+  #  - OKTETO_BUILD_CNAAS_FRONT_REPOSITORY: image repo
+  #  - OKTETO_BUILD_CNAAS_FRONT_IMAGE: image name
+  #  - OKTETO_BUILD_CNAAS_FRONT_SHA: image tag sha256
+  cnaas-front:
+    context: .
+    dockerfile: Dockerfile
+
+# The deploy section defines how to deploy your development environment
+# More info: https://www.okteto.com/docs/reference/manifest/#deploy
+deploy:
+  image: git.ia.surfsara.nl:5050/netdev/public-build-containers/okteto-pipeline-runner
+  commands:
+    - name: Deploy with Helm
+      command: |
+        helm upgrade --install -f .gitlab/helm/okteto-values.yaml cnaas-front chart -n josephine
+
+# The dependencies section defines other git repositories to be deployed as part of your development environment
+# More info: https://www.okteto.com/docs/reference/manifest/#dependencies
+# dependencies:
+#   - https://github.com/okteto/sample
+# The dev section defines how to activate a development container
+# More info: https://www.okteto.com/docs/reference/manifest/#dev
+# dev:
+#   sample:
+#     image: okteto/dev:latest
+#     command: bash
+#     workdir: /usr/src/app
+#     sync:
+#       - .:/usr/src/app
+#     environment:
+#       - name=$USER
+#     forward:
+#       - 8080:80
+

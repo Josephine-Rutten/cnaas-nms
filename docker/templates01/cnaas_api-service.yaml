@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cnaas-api
+  name: cnaas-api
+spec:
+  ports:
+    - name: "1443"
+      port: 1443
+      targetPort: 1443
+  selector:
+    io.kompose.service: cnaas-api
+status:
+  loadBalancer: {}

@@ -1,0 +1,42 @@
+---
+vxlans:
+  student1:
+    vni: 100500
+    vrf: STUDENT
+    vlan_id: 500
+    vlan_name: STUDENT
+    ipv4_gw: 10.200.1.1/24
+    groups:
+      - ALL_DEVICES
+  student2:
+    vni: 100501
+    vrf: STUDENT
+    vlan_id: 501
+    vlan_name: STUDENT2
+    ipv4_gw: 10.201.1.1/24
+    ipv4_secondaries:
+      - 172.16.1.1/24
+#    ipv6_gw: fe80::1/64
+    dhcp_relays: []
+    mtu: 9100
+    tags: ["multicast"]
+    devices:
+      - eosaccess
+  student3:
+    vni: 100502
+    vrf: STUDENT
+    vlan_id: 502
+    vlan_name: STUDENT34
+    ipv4_gw: 10.202.1.1/24
+    devices:
+      - eosdist1
+  student4:
+    vni: 100503
+    vrf: STUDENT
+    vlan_id: 503
+    vlan_name: STUDENT34
+    ipv4_gw: 10.203.2.1/24
+    groups:
+      - DIST_ODD
+    devices:
+      - eosdist2

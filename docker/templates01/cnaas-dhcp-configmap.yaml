@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dhcp-configmap
+data:
+  apiclient.yml: |
+    ---
+    cnaas_nms:
+      base_url: https://cnaas-api:1443
+      verify_tls: False

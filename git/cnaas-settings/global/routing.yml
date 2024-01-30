@@ -1,0 +1,30 @@
+---
+underlay:
+  infra_link_net: 10.198.0.0/16
+  infra_lo_net: 10.199.0.0/16
+  mgmt_lo_net: 10.100.3.0/24
+evpn_peers:
+  - hostname: eosdist
+  - hostname: eosdist2
+vrfs:
+  - name: MGMT
+    vrf_id: 1
+    groups:
+      - ALL
+  - name: STUDENT
+    vrf_id: 100
+    groups:
+      - DIST
+  - name: ROUTELEAK
+    vrf_id: 200
+    import_route_targets:
+      - "1:5555"
+    export_route_targets:
+      - "1:6666"
+    import_policy: "import-map"
+    export_policy: "export-map"
+    groups: []
+#extroute_ospfv3:
+#  vrfs:
+#    - name: STUDENTS
+#comment1

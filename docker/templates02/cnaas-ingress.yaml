@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cnaas-ingress
+  namespace: cnaas
+  annotations:
+    cert-manager.io/cluster-issuer: example-issuer
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.cnaas-nms.{{ .Values.dns.prefix }}.surfwired.surf.net
+      secretName: api-tls-secret
+    - hosts:
+        - front.cnaas-nms.{{ .Values.dns.prefix }}.surfwired.surf.net
+      secretName: front-tls-secret
+    - hosts:
+        - auth.cnaas-nms.{{ .Values.dns.prefix }}.surfwired.surf.net
+      secretName: auth-tls-secret
+  rules:
+  - host: api.cnaas-nms.{{ .Values.dns.prefix }}.surfwired.surf.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cnaas-api
+            port:
+              number: 1443
+  - host: front.cnaas-nms.{{ .Values.dns.prefix }}.surfwired.surf.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cnaas-front
+            port:
+              number: 4443
+  - host: auth.cnaas-nms.{{ .Values.dns.prefix }}.surfwired.surf.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cnaas-auth
+            port:
+              number: 2443

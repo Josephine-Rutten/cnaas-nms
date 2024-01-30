@@ -63,23 +63,32 @@ COPY --chown=root:www-data cnaas-setup.sh createca.sh exec-pre-app.sh pytest.sh 
 COPY --chown=www-data:www-data config/api.yml config/auth_config.yml config/db_config.yml config/plugins.yml config/repository.yml /etc/cnaas-nms/
 
 
-USER www-data
+#USER www-data
 
 # Give permission for devicecert store
 RUN mkdir /tmp/devicecerts \
     && chmod -R u=rwX,g=,o= /tmp/devicecerts
 
+<<<<<<< Updated upstream
 ARG BUILDBRANCH=develop
 ARG GITREPO_BASE=https://github.com/SUNET/cnaas-nms.git
 # Branch specific, don't cache
 ADD "https://api.github.com/repos/SUNET/cnaas-nms/git/refs/heads/" latest_commit
+=======
+#ARG BUILDBRANCH=master
+#ARG GITREPO_BASE=https://github.com/SUNET/cnaas-nms.git
+ARG BUILDBRANCH=feature.authenticationwithoauth
+ARG GITREPO_BASE=https://github.com/Josephine-Rutten/cnaas-nms.git
+#Branch specific, don't cache
+ADD "https://api.github.com/repos/Josephine-Rutten/cnaas-nms/git/refs/heads/" latest_commit
+>>>>>>> Stashed changes
 # Cnaas setup script
 RUN /opt/cnaas/cnaas-setup.sh ${GITREPO_BASE} ${BUILDBRANCH}
 # Freeze source
-USER root
+#USER root
 RUN chown -R root:www-data /opt/cnaas/venv/cnaas-nms/ && chmod -R u=rwX,g=rX,o= /opt/cnaas/venv/cnaas-nms/
 USER www-data
-
+ARG TEST1=opt/cnaas/jwtcert
 # Prepare for uwsgi
 COPY --chown=root:www-data config/uwsgi.ini /opt/cnaas/venv/cnaas-nms/
 

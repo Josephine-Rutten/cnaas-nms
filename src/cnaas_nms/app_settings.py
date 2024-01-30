@@ -4,6 +4,8 @@ from typing import Optional
 import yaml
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
+from pydantic import PostgresDsn, validator
+#from pydantic_settings import 
 
 
 class AppSettings(BaseSettings):
@@ -26,10 +28,10 @@ class AppSettings(BaseSettings):
     PASSWORD_DISCOVERED: str = "abc123abc123"
     USERNAME_MANAGED: str = "admin"
     PASSWORD_MANAGED: str = "abc123abc123"
-    TEMPLATES_REMOTE: str = "/opt/git/cnaas-templates-origin.git"
-    TEMPLATES_LOCAL: str = "/opt/cnaas/templates"
-    SETTINGS_REMOTE: str = "/opt/git/cnaas-settings-origin.git"
-    SETTINGS_LOCAL: str = "/opt/cnaas/settings"
+    TEMPLATES_REMOTE: str = "../opt/cnaas-templates-origin.git"
+    TEMPLATES_LOCAL: str = "../opt/templates"
+    SETTINGS_REMOTE: str = "../opt/cnaas-settings-origin.git"
+    SETTINGS_LOCAL: str = "../opt/settings"
 
 
 class ApiSettings(BaseSettings):
@@ -38,10 +40,10 @@ class ApiSettings(BaseSettings):
     HTTPD_URL: str = "https://cnaas_httpd:1443/api/v1.0/firmware"
     VERIFY_TLS: bool = False
     VERIFY_TLS_DEVICE: bool = False
-    JWT_CERT: Path = Path("/opt/cnaas/jwtcert/public.pem")
-    CAFILE: Optional[Path] = Path("/opt/cnaas/cacert/rootCA.crt")
-    CAKEYFILE: Path = Path("/opt/cnaas/cacert/rootCA.key")
-    CERTPATH: Path = Path("/tmp/devicecerts/")
+    JWT_CERT: Path = "../opt/cnaas/jwtcert/public.pem"
+    CAFILE: Optional[Path] = "../opt/cnaas/cacert/rootCA.crt"
+    CAKEYFILE: Path = "../opt/cnaas/cacert/rootCA.key"
+    CERTPATH: Path = "/tmp/devicecerts/"
     ALLOW_APPLY_CONFIG_LIVERUN: bool = False
     FIRMWARE_URL: str = HTTPD_URL
     JWT_ENABLED: bool = True
@@ -73,10 +75,12 @@ class AuthSettings(BaseSettings):
     OIDC_CLIENT_SCOPE: str = "openid"
     AUDIENCE: str = OIDC_CLIENT_ID
     VERIFY_AUDIENCE: bool = True
+    PERMISSIONS: dict = {}
+    PERMISSIONS_DISABLED: bool = False
 
 
 def construct_api_settings() -> ApiSettings:
-    api_config = Path("/etc/cnaas-nms/api.yml")
+    api_config = Path("./etc/cnaas-nms/api.yml")
 
     if api_config.is_file():
         with open(api_config, "r") as api_file:
@@ -111,8 +115,8 @@ def construct_api_settings() -> ApiSettings:
 
 
 def construct_app_settings() -> AppSettings:
-    db_config = Path("/etc/cnaas-nms/db_config.yml")
-    repo_config = Path("/etc/cnaas-nms/repository.yml")
+    db_config = Path("./etc/cnaas-nms/db_config.yml")
+    repo_config = Path("./etc/cnaas-nms/repository.yml")
 
     app_settings = AppSettings()
 
@@ -149,18 +153,31 @@ def construct_auth_settings() -> AuthSettings:
     if auth_config.is_file():
         with open(auth_config, "r") as auth_file:
             config = yaml.safe_load(auth_file)
-        return AuthSettings(
-            OIDC_ENABLED=config.get("oidc_enabled", AuthSettings().OIDC_ENABLED),
-            FRONTEND_CALLBACK_URL=config.get("frontend_callback_url", AuthSettings().FRONTEND_CALLBACK_URL),
-            OIDC_CONF_WELL_KNOWN_URL=config.get("oidc_conf_well_known_url", AuthSettings().OIDC_CONF_WELL_KNOWN_URL),
-            OIDC_CLIENT_SECRET=config.get("oidc_client_secret", AuthSettings().OIDC_CLIENT_SECRET),
-            OIDC_CLIENT_ID=config.get("oidc_client_id", AuthSettings().OIDC_CLIENT_ID),
-            OIDC_CLIENT_SCOPE=config.get("oidc_client_scope", AuthSettings().OIDC_CLIENT_SCOPE),
-            AUDIENCE=config.get("audience", AuthSettings().AUDIENCE),
-            VERIFY_AUDIENCE=config.get("verify_audience", AuthSettings().VERIFY_AUDIENCE),
-        )
+        auth_settings = AuthSettings(
+                OIDC_ENABLED=config.get("oidc_enabled", AuthSettings().OIDC_ENABLED),
+                FRONTEND_CALLBACK_URL=config.get("frontend_callback_url", AuthSettings().FRONTEND_CALLBACK_URL),
+                OIDC_CONF_WELL_KNOWN_URL=config.get("oidc_conf_well_known_url", AuthSettings().OIDC_CONF_WELL_KNOWN_URL),
+                OIDC_CLIENT_SECRET=config.get("oidc_client_secret", AuthSettings().OIDC_CLIENT_SECRET),
+                OIDC_CLIENT_ID=config.get("oidc_client_id", AuthSettings().OIDC_CLIENT_ID),
+                OIDC_CLIENT_SCOPE=config.get("oidc_client_scope", AuthSettings().OIDC_CLIENT_SCOPE),
+                AUDIENCE=config.get("audience", AuthSettings().AUDIENCE),
+                VERIFY_AUDIENCE=config.get("verify_audience", AuthSettings().VERIFY_AUDIENCE),
+            )
     else:
-        return AuthSettings()
+        auth_settings = AuthSettings()
+    permission_config = Path("/etc/cnaas-nms/permissions.yml")
+
+    def _create_permissions_config(settings: AuthSettings, permissions_rules: dict) -> None:
+        settings.PERMISSIONS = permissions_rules
+
+    if auth_settings.PERMISSIONS_DISABLED:
+        auth_settings.PERMISSIONS = {'config': {'default_permissions': 'default'}, 'roles': {'default': {'permissions':[{'methods': ['*'], 'endpoints': ['*'], 'pages': ['*'], 'rights': ['*']}]}}}
+    elif permission_config.is_file():
+        '''Load the file with role permission'''
+        with open(permission_config, "r") as permission_file:
+            permissions_rules = yaml.safe_load(permission_file)
+        _create_permissions_config(auth_settings, permissions_rules)
+    return auth_settings
 
 
 app_settings = construct_app_settings()

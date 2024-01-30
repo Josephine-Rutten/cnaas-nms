@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: example-issuer
+  namespace: cnaas
+spec:
+  acme:
+    email: automation-beheer@surfnet.nl
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: example-issuer-account-key
+    solvers:
+    - dns01:
+        azureDNS:
+          subscriptionID: 488a471a-8625-4815-aa55-bf1ebac0551e
+          resourceGroupName: rg-cnaas-infra
+          hostedZoneName: surfwired.surf.net
+          # Azure Cloud Environment, default to AzurePublicCloud
+          environment: AzurePublicCloud
+          # optional, only required if node pools have more than 1 managed identity assigned
+          managedIdentity:
+            # client id of the node pool managed identity (can not be set at the same time as resourceID)
+            clientID: {{ .Values.csidriver.managedidentityclientid }}
+            # resource id of the managed identity (can not be set at the same time as clientID)
+            # resourceID: YOUR_MANAGED_IDENTITY_RESOURCE_ID

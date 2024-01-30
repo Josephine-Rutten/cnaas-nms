@@ -1,0 +1,8 @@
+---
+# comment1
+ntp_servers:
+  - host: 194.58.202.20
+  - host: 194.58.202.148
+snmp_servers:
+  - host: 10.100.3.3
+dot1x_fail_vlan: 13

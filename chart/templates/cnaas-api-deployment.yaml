@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cnaas-api
+  name: cnaas-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: cnaas-api
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: cnaas-api
+    spec:
+      containers:
+        - env:
+            # - name: GIT_TOKEN
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: git-token            
+            # - name: GITREPO_ETC
+            #   value: "https://cnaas:$(GIT_TOKEN)@gitlab.surf.nl/surf-wired/{{ .Values.dns.prefix }}/etc.git"
+            # - name: GITREPO_SETTINGS
+            #   value: "https://cnaas:$(GIT_TOKEN)@gitlab.surf.nl/surf-wired/{{ .Values.dns.prefix }}/settings.git"
+            # - name: PASSWORD_DHCP_BOOT
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: cnaas-dhcpd-password
+            # - name: PASSWORD_DISCOVERED
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: cnaas-discovered-password
+            # - name: PASSWORD_INIT
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: cnaas-init-password
+            # - name: PASSWORD_MANAGED
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: cnaas-managed-password
+            # - name: TEMPLATE_SECRET_ADMIN_HASH
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: template-admin-hash
+            # - name: TEMPLATE_SECRET_RADIUS_HASH
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: template-radius-hash
+            # - name: TEMPLATE_SECRET_SNMP_COMMUNITY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: template-secret-snmp-community
+            # - name: API_KEY_NETBOX
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: api-key-netbox
+            - name: USERNAME_DHCP_BOOT
+              value: cnaas
+            - name: USERNAME_DISCOVERED
+              value: cnaas
+            - name: USERNAME_INIT
+              value: cnaas
+            - name: USERNAME_MANAGED
+              value: cnaas
+            - name: CNAAS_DB_HOSTNAME
+              value: 127.0.0.1
+            - name: CNAAS_DB_NAME
+              value: cnaas
+            - name: CNAAS_DB_PASSWORD
+              value: cnaas
+            - name: POSTGRES_DSN
+              value: "postgresql://cnaas@$(CNAAS_DB_NAME):$(CNAAS_DB_PASSWORD)@$(CNAAS_DB_HOSTNAME):5432/cnaas?sslmode=require"
+            - name: REDIS_HOSTNAME
+              value: cnaas-redis
+          image: {{ .Values.api.image }}
+          name: cnaas-api
+          ports:
+            - containerPort: 1443
+          imagePullPolicy: Always
+          resources: {}
+          volumeMounts:
+            - mountPath: /opt/cnaas/jwtcert
+              name: cnaas-jwtcert
+              readOnly: true
+            - mountPath: /opt/cnaas/cacert
+              name: cnaas-ca
+              readOnly: true
+            - mountPath: /etc/nginx/conf.d
+              name: nginx-certs
+              readOnly: false
+            #- name: secrets-store01-inline
+            #  mountPath: "/mnt/secrets-store"
+            #  readOnly: true
+            - name: cnaas-settings
+              mountPath: "/opt/cnaas/settings"
+              readOnly: false
+      # initContainers:
+      # - name: decode-certs
+      #   image: {{ .Values.api.image }}
+      #   imagePullPolicy: Always
+      #   command: ['sh', '-c', "cat /mnt/secrets-store/snakeoil-crt | base64 -d > /etc/nginx/conf.d/cnaas_snakeoil.crt; cat /mnt/secrets-store/snakeoil-key | base64 -d > /etc/nginx/conf.d/cnaas_snakeoil.key; cat /mnt/secrets-store/public-pem | base64 -d > /opt/cnaas/jwtcert/public.pem; cat /mnt/secrets-store/ca-crt | base64 -d > /opt/cnaas/cacert/rootCA.crt; cat /mnt/secrets-store/ca-key | base64 -d > /opt/cnaas/cacert/rootCA.key"]
+      #   securityContext:
+      #     privileged: true
+      #     runAsUser: 0
+      #   volumeMounts:
+      #     - mountPath: /etc/nginx/conf.d
+      #       name: nginx-certs
+      #     # - mountPath: "/mnt/secrets-store"
+      #     #   name: secrets-store01-inline
+      #     #   readOnly: true
+      #     - mountPath: /opt/cnaas/jwtcert
+      #       name: cnaas-jwtcert
+      #     - mountPath: /opt/cnaas/cacert
+      #       name: cnaas-ca
+      # - name: git-clone
+      #   image: {{ .Values.api.image }}
+      #   # env:
+      #   # - name: GIT_TOKEN
+      #   #   valueFrom:
+      #   #     secretKeyRef:
+      #   #       name: cnaas-credentials
+      #   #       key: git-token            
+      #   # - name: GITREPO_ETC
+      #   #   value: "https://cnaas:$(GIT_TOKEN)@gitlab.surf.nl/surf-wired/{{ .Values.dns.prefix }}/etc.git"
+      #   # - name: GITREPO_SETTINGS
+      #   #   value: "https://cnaas:$(GIT_TOKEN)@gitlab.surf.nl/surf-wired/{{ .Values.dns.prefix }}/settings.git"
+      #   imagePullPolicy: Always
+      #   #command: ['sh', '-c', "cd /opt/cnaas/settings && rm -rf * && rm -rf .git* && git clone $GITREPO_SETTINGS .; cd /opt/cnaas/templates && rm -rf * && rm -rf .git* && git clone --depth 1 -b $GITREPO_BRANCH $GITREPO_TEMPLATES . && cd /opt/cnaas && chown -R www-data:www-data *"]
+      #   securityContext:
+      #     privileged: true
+      #     runAsUser: 0
+      #   volumeMounts:
+      #     # - mountPath: "/mnt/secrets-store"
+      #     #   name: secrets-store01-inline
+      #     #   readOnly: true
+      #     - mountPath: /opt/cnaas/jwtcert
+      #       name: cnaas-jwtcert
+      #       subPath: public.pem
+      #     - mountPath: /opt/cnaas/cacert
+      #       name: cnaas-ca
+      #     - name: cnaas-settings
+      #       mountPath: "/opt/cnaas/settings"
+      #       readOnly: false
+      imagePullSecrets: 
+          - name: registry-credentials
+      restartPolicy: Always
+      volumes:
+        - name: cnaas-jwtcert
+          configMap:
+            name: jwt-cert
+            items:
+              - key: public.pem
+                path: public.pem
+        - name: cnaas-ca
+          persistentVolumeClaim:
+            claimName: cnaas-api-claim4
+        - name: nginx-certs
+          persistentVolumeClaim:
+            claimName: cnaas-api-claim0
+        - name: cnaas-settings
+          persistentVolumeClaim:
+            claimName: cnaas-api-claim3
+        # - name: secrets-store01-inline
+        #   csi:
+        #     driver: secrets-store.csi.k8s.io
+        #     readOnly: true
+        #     volumeAttributes:
+        #       secretProviderClass: "azure-kvname-user-msi"

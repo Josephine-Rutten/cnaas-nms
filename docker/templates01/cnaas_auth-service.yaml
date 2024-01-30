@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cnaas-auth
+  name: cnaas-auth
+spec:
+  ports:
+    - name: "2443"
+      port: 2443
+      targetPort: 1443
+  selector:
+    io.kompose.service: cnaas-auth
+status:
+  loadBalancer: {}

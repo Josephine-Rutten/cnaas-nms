@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "cnaas-nms.fullname" . }}-test-connection"
+  labels:
+    {{- include "cnaas-nms.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['{{ include "cnaas-nms.fullname" . }}:{{ .Values.service.port }}']
+  restartPolicy: Never

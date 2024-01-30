@@ -1,0 +1,7 @@
+---
+# comment5
+ntp_servers:
+        - host: 10.100.3.2
+        - host: 10.100.3.3
+radius_servers:
+        - host: 10.100.2.3

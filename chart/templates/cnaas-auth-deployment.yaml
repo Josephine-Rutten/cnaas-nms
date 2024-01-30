@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cnaas-auth
+  name: cnaas-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: cnaas-auth
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: cnaas-auth
+    spec:
+      containers:
+        - image: {{ .Values.auth.image }}
+          name: cnaas-auth
+          ports:
+            - containerPort: 1443
+          resources: {}
+          volumeMounts:
+            - mountPath: /opt/auth-server-poc/cert
+              name: cnaas-auth-certs
+              readOnly: true
+            - mountPath: /opt/auth-server-poc/userdb/
+              name: cnaas-authserver-userdb
+      initContainers:
+      - name: decode-certs
+        image: {{ .Values.api.image }}
+        imagePullPolicy: Always
+        command: ['sh', '-c', "cat /mnt/secrets-store/auth-private-pem | base64 -d > /opt/auth-server-poc/cert/private.pem; cat /mnt/secrets-store/auth-public-pem | base64 -d > /opt/auth-server-poc/cert/public.pem" ]
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        volumeMounts:
+          # - mountPath: "/mnt/secrets-store"
+          #   name: secrets-store01-inline
+          #   readOnly: true
+          - mountPath: /opt/auth-server-poc/cert
+            name: cnaas-auth-certs
+      restartPolicy: Always
+      volumes:
+        - name: cnaas-auth-certs
+          configMap:
+            name: jwt-cert
+            items:
+              - key: public.pem
+                path: public.pem
+        - name: cnaas-authserver-userdb
+          persistentVolumeClaim:
+            claimName: cnaas-authserver-userdb
+        # - name: secrets-store01-inline
+        #   csi:
+        #     driver: secrets-store.csi.k8s.io
+        #     readOnly: true
+        #     volumeAttributes:
+        #       secretProviderClass: "azure-kvname-user-msi"
+status: {}

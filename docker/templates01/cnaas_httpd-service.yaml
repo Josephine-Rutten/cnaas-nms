@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    io.kompose.service: cnaas-httpd
+  name: cnaas-httpd
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"  
+spec:
+  type: LoadBalancer
+  loadBalancerIP: {{ .Values.loadbalancer.ip }}
+  ports:
+    - name: "1180"
+      port: 1180
+      targetPort: 1180
+  selector:
+    io.kompose.service: cnaas-httpd
+status:
+  loadBalancer: {}

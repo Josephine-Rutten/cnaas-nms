@@ -1,0 +1,20 @@
+config:
+  group_claim_key: "scope"
+  roles_separated_by: ""
+  default_permissions: "any"
+roles:
+  read:
+    # can use wildcard (*) or "GET", "POST", "DELETE" etc
+    allowed_api_methods: ["GET"]
+    # can use wildcards (*), full uri of the api call or regex. Preferably in that order. 
+    allowed_api_calls: ["/devices", "/jobs", "*2"]
+  write:
+    allowed_api_methods: ["GET", "PUT"]
+    allowed_api_calls: ["*"] 
+  openidw:
+    allowed_api_methods: ["GET", "PUT"]
+    allowed_api_calls: ["/devices", "/jobs", "/repository/a.*"]
+  # fallback role for people without roles
+  any:
+    allowed_api_methods: ["GET"]
+    allowed_api_calls: ["/devices", "/jobs", "*2"]

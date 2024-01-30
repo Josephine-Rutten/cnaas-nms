@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cnaas-redis
+  name: cnaas-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: cnaas-redis
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        io.kompose.service: cnaas-redis
+    spec:
+      containers:
+        - image: {{ .Values.redis.image }}
+          name: cnaas-redis
+          resources: {}
+      restartPolicy: Always
+status: {}

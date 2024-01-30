@@ -1,3 +1,8 @@
+[tool.poetry]
+name = "cnaas-nms"
+version = "1.0"
+description = ""
+authors = ["Johan M"]
 [tool.isort]
 profile="black"
 line_length = 120

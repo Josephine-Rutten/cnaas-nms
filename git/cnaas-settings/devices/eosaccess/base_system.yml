@@ -1,0 +1,4 @@
+---
+# comment6
+ntp_servers:
+        - host: 194.58.202.148

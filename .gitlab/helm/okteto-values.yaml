@@ -1,0 +1,2 @@
+env: 
+  OKTETO_IMAGE: "registry.test.automation.surf.net/josephine/cnaas-nms-cnaas-nms:okteto"

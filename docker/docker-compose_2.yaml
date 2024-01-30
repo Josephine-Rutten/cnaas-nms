@@ -1,0 +1,133 @@
+version: '3.7'
+services:
+
+  #
+  # CNaaS services
+  #
+
+  cnaas_api:
+    build:
+      context: ./api/
+      args:
+        - BUILDBRANCH=master
+        - GITREPO_BASE=https://github.com/SUNET/cnaas-nms.git
+    ports:
+      - 443:1443
+    networks:
+      - cnaas
+    environment:
+      - GITREPO_TEMPLATES
+      - GITREPO_SETTINGS
+      - COVERAGE
+      - USERNAME_DHCP_BOOT
+      - PASSWORD_DHCP_BOOT
+      - USERNAME_DISCOVERED
+      - PASSWORD_DISCOVERED
+      - USERNAME_INIT
+      - PASSWORD_INIT
+      - USERNAME_MANAGED
+      - PASSWORD_MANAGED
+      - PYTEST_POSTGRES_EXTERNAL
+      - PYTEST_REDIS_EXTERNAL
+      - PYTEST_SETTINGS_CLONED
+      - PYTEST_TEMPLATES_CLONED
+    depends_on:
+      - "cnaas_postgres"
+      - "cnaas_redis"
+      - "cnaas_httpd"
+    volumes:
+      - type: volume
+        source: cnaas-templates
+        target: /opt/cnaas/templates
+      - type: volume
+        source: cnaas-settings
+        target: /opt/cnaas/settings
+      - type: volume
+        source: cnaas-jwtcert
+        target: /opt/cnaas/jwtcert
+      - type: volume
+        source: cnaas-cacert
+        target: /opt/cnaas/cacert
+
+  cnaas_httpd:
+    image:
+      docker.sunet.se/cnaas/httpd
+    ports:
+      - 80:1180
+    networks:
+      - cnaas
+    environment:
+      - GITREPO_TEMPLATES
+
+  cnaas_dhcpd:
+    build:
+      context: ./dhcpd/
+      args:
+        - BUILDBRANCH=develop
+        - GITREPO_BASE=https://github.com/SUNET/cnaas-nms.git
+    ports:
+      - 67:67/udp
+    networks:
+      - cnaas
+    environment:
+      - GITREPO_ETC
+      - DB_PASSWORD=cnaas
+      - DB_HOSTNAME=docker_cnaas_postgres_1
+      - JWT_AUTH_TOKEN
+    depends_on:
+      - "cnaas_httpd"
+      - "cnaas_api"
+
+
+  #
+  # Databases
+  #
+
+  cnaas_postgres:
+    build: ./postgres/
+    volumes:
+      - cnaas-postgres-data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=cnaas
+      - POSTGRES_PASSWORD=cnaas
+      - POSTGRES_DB=cnaas
+    networks:
+      - cnaas
+
+  cnaas_redis:
+    build: ./redis/
+    ports:
+      - 6379:6379
+    networks:
+      - cnaas
+
+  cnaas_auth:
+    image: docker.sunet.se/auth-server-poc:latest
+    ports:
+      - 2443:1443
+    networks:
+      - cnaas
+
+networks:
+  cnaas:
+    driver: bridge
+    name: cnaas
+    ipam:
+      config:
+      - subnet: 172.30.0.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br-cnaas
+
+volumes:
+  cnaas-templates:
+    external: true
+  cnaas-settings:
+    external: true
+  cnaas-postgres-data:
+    external: true
+  cnaas-jwtcert:
+    external: true
+  cnaas-cacert:
+    external: true

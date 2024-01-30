@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cnaas-dhcpd
+  name: cnaas-dhcpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: cnaas-dhcpd
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: cnaas-dhcpd
+    spec:
+      containers:
+        - env:
+            - name: DB_HOSTNAME
+              value: cnaas-postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: cnaas-credentials
+                  key: cnaas-db-password
+            # - name: GIT_TOKEN
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: cnaas-credentials
+            #       key: git-token
+            # - name: GITREPO_ETC
+            #   value: "https://cnaas:$(GIT_TOKEN)@gitlab.surf.nl/surf-wired/{{ .Values.dns.prefix }}/etc.git"
+            - name: JWT_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cnaas-credentials
+                  key: jwt-auth-token
+          image: {{ .Values.dhcpd.image }}
+          name: cnaas-dhcpd
+          ports:
+            - containerPort: 67
+              protocol: UDP
+          resources: {}
+          volumeMounts:
+            - mountPath: /opt/git
+              name: cnaas-dhcpd-claim0
+            # - name: secrets-store01-inline
+            #   mountPath: "/mnt/secrets-store"
+            #   readOnly: true
+            - name: config-volume
+              mountPath: /etc/cnaas-nms
+      restartPolicy: Always
+      volumes:
+        - name: cnaas-dhcpd-claim0
+          persistentVolumeClaim:
+            claimName: cnaas-dhcpd-claim0
+        # - name: secrets-store01-inline
+        #   csi:
+        #     driver: secrets-store.csi.k8s.io
+        #     readOnly: true
+        #     volumeAttributes:
+        #       secretProviderClass: "azure-kvname-user-msi"
+        - name: config-volume
+          configMap:
+            name: dhcp-configmap
+status: {}

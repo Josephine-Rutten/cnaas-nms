@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    io.kompose.service: cnaas-postgres
+  name: cnaas-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: cnaas-postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        io.kompose.service: cnaas-postgres
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_DB
+              value: cnaas
+            - name: POSTGRES_PASSWORD
+              value: cnaas
+            - name: POSTGRES_USER
+              value: cnaas
+            - name: CNAAS_DB_HOSTNAME
+              value: 127.0.0.1
+            - name: CNAAS_DB_NAME
+              value: cnaas
+            - name: CNAAS_DB_PASSWORD
+              value: cnaas
+            - name: POSTGRES_DSN
+              value: "postgresql://cnaas@$(CNAAS_DB_NAME):$(CNAAS_DB_PASSWORD)@$(CNAAS_DB_HOSTNAME):5432/cnaas?sslmode=require"
+            - name: REDIS_HOSTNAME
+              value: cnaas-redis
+          image: {{ .Values.postgres.image }}
+          name: cnaas-postgres
+          resources: {}
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: cnaas-postgres-data
+              subPath: postgres
+            # - name: secrets-store01-inline
+            #   mountPath: "/mnt/secrets-store"
+            #   readOnly: true
+      restartPolicy: Always
+      volumes:
+        - name: cnaas-postgres-data
+          persistentVolumeClaim:
+            claimName: cnaas-postgres-data
+        # - name: secrets-store01-inline
+        #   csi:
+        #     driver: secrets-store.csi.k8s.io
+        #     readOnly: true
+        #     volumeAttributes:
+        #       secretProviderClass: "azure-kvname-user-msi"
+status: {}

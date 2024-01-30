@@ -1,0 +1,30 @@
+name: cnaas-nms
+build:
+  cnaas-nms:
+    context: docker/api
+    dockerfile: Dockerfile
+#     target: dev
+deploy:
+  image: git.ia.surfsara.nl:5050/netdev/public-build-containers/okteto-pipeline-runner:${PIPELINE_RUNNER_SHA}
+  commands:
+    - name: Print information
+      command: echo "Try"
+    - name: Deploy with Helm
+      command: >
+        helm upgrade --install
+        -f .gitlab/helm/okteto-values.yaml
+        cnaas-nms chart
+dev:
+  cnaas-api:
+    command: sh /docker/api/cnaas-setup.sh
+        
+        
+    environment:
+      DEBUG_VSCODE: ${DEBUG_VSCODE:-false}
+      DEBUG_PYCHARM: ${DEBUG_PYCHARM:-false}
+    sync:
+      - src:/src
+    interface: 127.0.0.1  # SSH bind address
+    #remote: 22008  # SSH bind port
+    forward:
+      - 8080:80
